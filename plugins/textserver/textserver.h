@@ -303,6 +303,7 @@ public:
         mapNetworkFns["robot_getactivedof"] = RAVENETWORKFN(boost::bind(&SimpleTextServer::orRobotGetActiveDOF,this,_1,_2,_3), OpenRaveWorkerFn(), true);
         mapNetworkFns["robot_getdofvalues"] = RAVENETWORKFN(boost::bind(&SimpleTextServer::orRobotGetDOFValues,this,_1,_2,_3), OpenRaveWorkerFn(), true);
         mapNetworkFns["robot_getlimits"] = RAVENETWORKFN(boost::bind(&SimpleTextServer::orRobotGetDOFLimits,this,_1,_2,_3), OpenRaveWorkerFn(), true);
+        mapNetworkFns["robot_calcjacobian"] = RAVENETWORKFN(boost::bind(&SimpleTextServer::orRobotCalcJacobian,this,_1,_2,_3), OpenRaveWorkerFn(), true);
         mapNetworkFns["robot_getmanipulators"] = RAVENETWORKFN(boost::bind(&SimpleTextServer::orRobotGetManipulators,this,_1,_2,_3), OpenRaveWorkerFn(), true);
         mapNetworkFns["robot_getsensors"] = RAVENETWORKFN(boost::bind(&SimpleTextServer::orRobotGetAttachedSensors,this,_1,_2,_3), OpenRaveWorkerFn(), true);
         mapNetworkFns["robot_sensorsend"] = RAVENETWORKFN(boost::bind(&SimpleTextServer::orRobotSensorSend,this,_1,_2,_3), OpenRaveWorkerFn(), true);
@@ -1679,6 +1680,40 @@ protected:
             os << *it << " ";
         }
         FOREACH(it, upper) {
+            os << *it << " ";
+        }
+        return true;
+    }
+    
+    bool orRobotCalcJacobian(istream& is, ostream& os, boost::shared_ptr<void>& pdata)
+    {
+        _SyncWithWorkerThread();
+        EnvironmentMutex::scoped_lock lock(GetEnv()->GetMutex());
+        RobotBasePtr probot = orMacroGetRobot(is);
+        if( !probot ) {
+            return false;
+        }
+
+	std::vector<OpenRAVE::RobotBase::ManipulatorPtr> manipulators = probot->GetManipulators();
+	int manipulatorid = -1;
+	is >> manipulatorid;
+	
+	//Check manipulatorid is valid
+	if (manipulatorid < 0 || manipulatorid >= manipulators.size())
+	  return false;
+
+	//Calc Translation & Rotation Jacobian
+	std::vector<dReal> transJac, rotJac;
+	manipulators[manipulatorid]->CalculateJacobian(transJac);
+	manipulators[manipulatorid]->CalculateRotationJacobian(rotJac);
+
+        os << transJac.size() << " ";
+        FOREACH(it, transJac) {
+            os << *it << " ";
+        }
+
+        os << rotJac.size() << " ";
+        FOREACH(it, rotJac) {
             os << *it << " ";
         }
         return true;
